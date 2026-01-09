@@ -1,0 +1,58 @@
+# =============================================================================
+# Grovio AI Image Generation API - Docker Compose
+# =============================================================================
+
+services:
+  grovio-images-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grovio-images-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5005}:${PORT:-5005}"
+    environment:
+      # Grovio AI API Key (required)
+      - GROVIO_API_KEY=${GROVIO_API_KEY}
+      - FAL_KEY=${FAL_KEY:-${GROVIO_API_KEY}}
+      
+      # OpenAI API Key (for GPT-4o prompt enhancement)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5.1}
+      
+      # Server Configuration
+      - HOST=0.0.0.0
+      - PORT=${PORT:-5005}
+      
+      # AWS S3 Configuration
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_S3_UPLOAD_BUCKET=${AWS_S3_UPLOAD_BUCKET:-grovioupload}
+      - AWS_S3_GENERATED_BUCKET=${AWS_S3_GENERATED_BUCKET:-groviogenerated}
+      
+      # MongoDB Configuration
+      - MONGODB_CONNECTION_STRING=${MONGODB_CONNECTION_STRING}
+      - MONGODB_URI=${MONGODB_URI:-${MONGODB_CONNECTION_STRING}}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-Grovio_Mini_Apps}
+      - MONGODB_COLLECTION=${MONGODB_COLLECTION:-Image_Mini_App}
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-5005}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    networks:
+      - grovio-network
+
+networks:
+  grovio-network:
+    driver: bridge
