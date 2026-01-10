@@ -1,8 +1,9 @@
 version: 0.0
 os: linux
+file_exists_behavior: OVERWRITE
 files:
   - source: /
-    destination: /home/ec2-user/app
+    destination: /home/ec2-user/app/image-api
 
 hooks:
   ApplicationStop:
