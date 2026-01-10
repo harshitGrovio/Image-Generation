@@ -36,6 +36,9 @@ USER grovio
 # Default port (can be overridden by environment variable)
 ENV PORT=5005
 
+# MongoDB collection for this service
+ENV MONGODB_COLLECTION=Image_Mini_App
+
 # Expose port
 EXPOSE ${PORT}
 
