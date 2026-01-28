@@ -18,6 +18,14 @@ except ImportError:
     GROVIO_AI_AVAILABLE = False
     print("⚠️ Grovio AI client not installed. Run: pip install fal-client")
 
+# Bytedance Seedream client for direct API access
+try:
+    from bytedance_client import BytedanceSeedreamClient, get_bytedance_client
+    BYTEDANCE_AVAILABLE = True
+except ImportError:
+    BYTEDANCE_AVAILABLE = False
+    print("⚠️ Bytedance client not available")
+
 
 class ImageModel(str, Enum):
     """
@@ -771,6 +779,44 @@ class GrovioImageGenerator:
             
             # Build arguments based on model
             model_id = model.value
+            
+            # ====================================================================
+            # BYTEDANCE SEEDREAM ROUTING
+            # Route Seedream models through Bytedance API instead of fal.ai
+            # ====================================================================
+            if BYTEDANCE_AVAILABLE and "seedream" in model_id.lower():
+                print(f"🔀 Routing {model_id} through Bytedance API")
+                bytedance_client = get_bytedance_client()
+                if bytedance_client:
+                    # Convert model_id to short name for Bytedance client
+                    short_model = bytedance_client.FAL_TO_SHORT.get(model_id, "seedream-v4.5")
+                    
+                    bd_result = await bytedance_client.generate_image(
+                        prompt=prompt,
+                        model=short_model,
+                        width=width,
+                        height=height,
+                        num_images=num_images,
+                        seed=seed,
+                    )
+                    
+                    if bd_result.success:
+                        cost_estimate = self._estimate_cost(model_id, width, height, num_images)
+                        return GenerationResult(
+                            success=True,
+                            images=bd_result.images,
+                            seed=bd_result.seed,
+                            prompt=bd_result.revised_prompt or prompt,
+                            model=model_id,
+                            cost_estimate=cost_estimate,
+                        )
+                    else:
+                        print(f"⚠️ Bytedance failed, falling back to fal.ai: {bd_result.error}")
+                        # Fall through to fal.ai
+            # ====================================================================
+            # END BYTEDANCE ROUTING
+            # ====================================================================
+            
             arguments = {
                 "prompt": prompt,
                 "image_size": {"width": width, "height": height},
@@ -924,6 +970,52 @@ class GrovioImageGenerator:
         """
         try:
             model_id = model.value
+            
+            # ====================================================================
+            # BYTEDANCE SEEDREAM EDIT ROUTING
+            # Route Seedream edit models through Bytedance API instead of fal.ai
+            # ====================================================================
+            if BYTEDANCE_AVAILABLE and "seedream" in model_id.lower():
+                print(f"🔀 Routing {model_id} edit through Bytedance API")
+                bytedance_client = get_bytedance_client()
+                if bytedance_client:
+                    # Convert model_id to short name
+                    short_model = bytedance_client.FAL_TO_SHORT.get(model_id, "seedream-v4.5-edit")
+                    
+                    # Get dimensions from size if provided
+                    width, height = 1024, 1024
+                    if size:
+                        dims = SIZE_DIMENSIONS.get(size.value, SIZE_DIMENSIONS["square_hd"])
+                        width, height = dims["width"], dims["height"]
+                    
+                    # Collect all image URLs
+                    all_urls = image_urls if image_urls else ([image_url] if image_url else [])
+                    
+                    bd_result = await bytedance_client.edit_image(
+                        image_url=all_urls[0] if all_urls else "",
+                        prompt=prompt,
+                        model=short_model,
+                        image_urls=all_urls,
+                        width=width,
+                        height=height,
+                    )
+                    
+                    if bd_result.success:
+                        cost_estimate = self.MODEL_PRICING.get(model_id, 0.04)
+                        return GenerationResult(
+                            success=True,
+                            images=bd_result.images,
+                            seed=bd_result.seed,
+                            prompt=prompt,
+                            model=model_id,
+                            cost_estimate=cost_estimate,
+                        )
+                    else:
+                        print(f"⚠️ Bytedance edit failed, falling back to fal.ai: {bd_result.error}")
+                        # Fall through to fal.ai
+            # ====================================================================
+            # END BYTEDANCE EDIT ROUTING
+            # ====================================================================
             
             # Build base arguments
             arguments = {
